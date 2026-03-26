@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/          # 只忽略根目录的 lib（Python库），不忽略子目录
 lib64/
 parts/
 sdist/
