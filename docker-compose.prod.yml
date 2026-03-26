@@ -1,0 +1,59 @@
+# NyxAI 生产环境 Docker Compose（精简版）
+# 使用 Supabase 云数据库，无需本地 PostgreSQL
+version: '3.8'
+
+services:
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: nyx-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - nyx-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端 API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nyx-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # 指定生产环境，加载 .env.production
+      APP_ENV: "production"
+      # Redis 配置（容器内网络）
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./backend/.env.production
+    volumes:
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      - ./backend/app/prompts:/app/app/prompts:ro
+    networks:
+      - nyx-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  redis_data:
+
+
+networks:
+  nyx-network:
+    driver: bridge

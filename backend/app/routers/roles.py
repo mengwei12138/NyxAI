@@ -29,7 +29,7 @@ router = APIRouter(prefix="/roles", tags=["角色"])
 # 头像存储目录
 _BASE_DIR = os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))
-AVATAR_DIR = os.path.join(_BASE_DIR, '..', 'cache', 'avatars')
+AVATAR_DIR = os.path.join(_BASE_DIR, 'cache', 'avatars')
 os.makedirs(AVATAR_DIR, exist_ok=True)
 
 
