@@ -48,8 +48,7 @@ setup_logging(
 
 # 本地 cache 目录（存放 TTS 音频 + 文生图图片）
 CACHE_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__)))),
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'cache'
 )
 os.makedirs(os.path.join(CACHE_DIR, 'tts'), exist_ok=True)
