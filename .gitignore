@@ -37,7 +37,7 @@ env/
 .env
 .env.local
 .env.*.local
-.env.production
+# .env.production 允许提交（前端需要）
 backend/.env
 backend/.env.production
 
