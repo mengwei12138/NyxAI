@@ -23,7 +23,7 @@ settings = get_settings()
 IMAGE_CACHE_DIR = os.path.join(
     os.path.dirname(os.path.dirname(
         os.path.dirname(os.path.abspath(__file__)))),
-    '..', 'cache', 'images'
+    'cache', 'images'
 )
 os.makedirs(IMAGE_CACHE_DIR, exist_ok=True)
 

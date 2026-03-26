@@ -13,12 +13,12 @@ settings = get_settings()
 
 # 音频缓存目录
 CACHE_DIR = os.path.join(os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '..', 'cache', 'tts')
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'cache', 'tts')
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # 预览音频专用目录
 PREVIEW_DIR = os.path.join(os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '..', 'cache', 'tts_preview')
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'cache', 'tts_preview')
 os.makedirs(PREVIEW_DIR, exist_ok=True)
 
 

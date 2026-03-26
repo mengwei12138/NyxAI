@@ -314,7 +314,7 @@ async def user_recharge(
 
 _BASE_DIR_ADMIN = os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))
-_AVATAR_DIR = os.path.join(_BASE_DIR_ADMIN, '..', 'cache', 'avatars')
+_AVATAR_DIR = os.path.join(_BASE_DIR_ADMIN, 'cache', 'avatars')
 os.makedirs(_AVATAR_DIR, exist_ok=True)
 
 
