@@ -24,9 +24,10 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"],
+      "@/lib/utils": ["./lib/utils.ts"],
+      "@/lib/store": ["./lib/store.ts"],
+      "@/lib/api": ["./lib/api.ts"]
     }
   },
   "include": [
