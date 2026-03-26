@@ -1,0 +1,41 @@
+{% extends "admin/base.html" %}
+{% block title %}管理员登录 - Nyx AI{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center -mt-14 -ml-0">
+    <div class="w-full max-w-sm">
+        <div class="bg-white rounded-2xl shadow-lg p-8">
+            <div class="text-center mb-8">
+                <div class="text-4xl mb-3">🌙</div>
+                <h1 class="text-xl font-bold text-gray-900">Nyx AI 管理后台</h1>
+                <p class="text-sm text-gray-500 mt-1">请使用管理员账号登录</p>
+            </div>
+
+            {% if error %}
+            <div class="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" action="{{ admin_path }}/login" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                    <input type="text" name="username" autocomplete="username" required
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm"
+                        placeholder="请输入管理员用户名" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                    <input type="password" name="password" autocomplete="current-password" required
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent text-sm"
+                        placeholder="请输入密码" />
+                </div>
+                <button type="submit"
+                    class="w-full py-2.5 bg-gray-900 text-white rounded-lg font-medium text-sm hover:bg-gray-700 transition-colors mt-2">
+                    登录
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

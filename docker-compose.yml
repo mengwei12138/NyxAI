@@ -1,0 +1,94 @@
+# NyxAI 生产环境 Docker Compose 配置
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: nyx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nyx
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: nyx_ai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - nyx-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U nyx -d nyx_ai" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: nyx-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - nyx-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端 API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nyx-backend
+    restart: unless-stopped
+    environment:
+      # 指定生产环境，加载 .env.production
+      APP_ENV: "production"
+      # Redis 配置
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./backend/.env.production
+    volumes:
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+    networks:
+      - nyx-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: nyx-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./cache:/var/www/cache:ro
+    networks:
+      - nyx-network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+
+networks:
+  nyx-network:
+    driver: bridge

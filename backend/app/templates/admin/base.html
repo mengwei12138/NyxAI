@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Nyx AI 管理后台{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background-color 0.15s;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-item.active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- 顶部导航 -->
+    <header class="fixed top-0 left-0 right-0 z-30 bg-gray-900 text-white h-14 flex items-center px-6 shadow-md">
+        <span class="text-lg font-bold tracking-tight mr-8">🌙 Nyx AI 管理后台</span>
+        <span class="flex-1"></span>
+        {% if admin %}
+        <span class="text-sm text-gray-300 mr-4">👤 {{ admin.username }}</span>
+        <a href="{{ admin_path }}/logout" class="text-sm text-red-400 hover:text-red-300 transition-colors">退出登录</a>
+        {% endif %}
+    </header>
+
+    <div class="flex pt-14 min-h-screen">
+        <!-- 侧边栏 -->
+        {% if admin %}
+        <aside
+            class="fixed left-0 top-14 bottom-0 w-52 bg-gray-800 text-white flex flex-col py-4 px-3 shadow-lg overflow-y-auto z-20">
+            <nav class="space-y-1">
+                <a href="{{ admin_path }}"
+                    class="nav-item {% if request.url.path == admin_path or request.url.path == admin_path ~ '/' %}active{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    仪表盘
+                </a>
+                <a href="{{ admin_path }}/users"
+                    class="nav-item {% if '/users' in request.url.path %}active{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    用户管理
+                </a>
+                <a href="{{ admin_path }}/roles"
+                    class="nav-item {% if '/roles' in request.url.path %}active{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    角色管理
+                </a>
+                <a href="{{ admin_path }}/credits"
+                    class="nav-item {% if '/credits' in request.url.path %}active{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    积分管理
+                </a>
+                <a href="{{ admin_path }}/voices"
+                    class="nav-item {% if '/voices' in request.url.path %}active{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    音色管理
+                </a>
+                <a href="{{ admin_path }}/packages"
+                    class="nav-item {% if '/packages' in request.url.path %}active{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    充值方案
+                </a>
+            </nav>
+        </aside>
+        {% endif %}
+
+        <!-- 主内容区 -->
+        <main class="{% if admin %}ml-52{% endif %} flex-1 p-6">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

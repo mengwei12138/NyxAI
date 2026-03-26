@@ -1,0 +1,194 @@
+{% extends "admin/base.html" %}
+{% block title %}音色管理 - Nyx AI 管理后台{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">音色管理</h1>
+        <span class="text-sm text-gray-500">共 {{ voices|length }} 个音色</span>
+    </div>
+
+    <!-- 新增音色表单 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-4">新增音色</h2>
+        <form method="post" action="{{ admin_path }}/voices/create" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">音色名称 <span
+                        class="text-red-500">*</span></label>
+                <input type="text" name="name" required placeholder="如：温柔御姐"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Fish Audio 模型 ID <span
+                        class="text-red-500">*</span></label>
+                <input type="text" name="reference_id" required placeholder="如：5c09bfed66ce4a968c3022d6f85c8e07"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">描述</label>
+                <input type="text" name="description" placeholder="如：温婉柔和，知性大方"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">试听文本</label>
+                <input type="text" name="preview_text" placeholder="如：今天辛苦了吧，来，让我帮你放松一下。"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">排序 (数字越小越靠前)</label>
+                <input type="number" name="sort_order" value="99"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div class="flex items-end">
+                <button type="submit"
+                    class="px-5 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors">
+                    添加音色
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 音色列表 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+                <tr>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">排序</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">音色名称</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Fish Audio ID</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">描述</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">默认</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">状态</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">操作</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for voice in voices %}
+                <tr class="hover:bg-gray-50 transition-colors {% if not voice.is_active %}opacity-50{% endif %}">
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ voice.sort_order }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">
+                        {{ voice.name }}
+                        {% if voice.preview_text %}
+                        <div class="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{{ voice.preview_text }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-500 max-w-xs truncate"
+                        title="{{ voice.reference_id }}">
+                        {{ voice.reference_id[:16] }}…
+                    </td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ voice.description or '-' }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if voice.is_default %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">默认</span>
+                        {% else %}
+                        <span class="text-gray-300">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if voice.is_active %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">启用</span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">停用</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            <!-- 编辑按钮（展开行内表单） -->
+                            <button type="button" onclick="toggleEdit({{ voice.id }})"
+                                class="px-2 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
+                                编辑
+                            </button>
+                            <!-- 设为默认 -->
+                            {% if not voice.is_default %}
+                            <form method="post" action="{{ admin_path }}/voices/{{ voice.id }}/set-default" class="inline">
+                                <button type="submit"
+                                    class="px-2 py-1 text-xs rounded bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition-colors">
+                                    设默认
+                                </button>
+                            </form>
+                            {% endif %}
+                            <!-- 启用/停用 -->
+                            <form method="post" action="{{ admin_path }}/voices/{{ voice.id }}/toggle" class="inline">
+                                <button type="submit"
+                                    class="px-2 py-1 text-xs rounded {% if voice.is_active %}bg-orange-50 text-orange-600 hover:bg-orange-100{% else %}bg-green-50 text-green-600 hover:bg-green-100{% endif %} transition-colors">
+                                    {{ '停用' if voice.is_active else '启用' }}
+                                </button>
+                            </form>
+                            <!-- 删除（默认音色禁止删除） -->
+                            {% if not voice.is_default %}
+                            <form method="post" action="{{ admin_path }}/voices/{{ voice.id }}/delete" class="inline"
+                                onsubmit="return confirm('确认删除音色「{{ voice.name | e }}」？')">
+                                <button type="submit"
+                                    class="px-2 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                                    删除
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                <!-- 编辑展开行 -->
+                <tr id="edit-row-{{ voice.id }}" class="hidden bg-blue-50">
+                    <td colspan="7" class="px-4 py-4">
+                        <form method="post" action="{{ admin_path }}/voices/{{ voice.id }}/edit"
+                            class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">音色名称</label>
+                                <input type="text" name="name" value="{{ voice.name | e }}" required
+                                    class="w-full px-2 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Fish Audio 模型 ID</label>
+                                <input type="text" name="reference_id" value="{{ voice.reference_id | e }}" required
+                                    class="w-full px-2 py-1.5 rounded border border-gray-300 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">描述</label>
+                                <input type="text" name="description" value="{{ voice.description or '' | e }}"
+                                    class="w-full px-2 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">试听文本</label>
+                                <input type="text" name="preview_text" value="{{ voice.preview_text or '' | e }}"
+                                    class="w-full px-2 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">排序</label>
+                                <input type="number" name="sort_order" value="{{ voice.sort_order }}"
+                                    class="w-full px-2 py-1.5 rounded border border-gray-300 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <button type="submit"
+                                    class="px-4 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors">
+                                    保存
+                                </button>
+                                <button type="button" onclick="toggleEdit({{ voice.id }})"
+                                    class="px-4 py-1.5 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors">
+                                    取消
+                                </button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无音色数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toggleEdit(vid) {
+        const row = document.getElementById('edit-row-' + vid);
+        row.classList.toggle('hidden');
+    }
+</script>
+{% endblock %}

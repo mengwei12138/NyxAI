@@ -1,0 +1,83 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment Variables (敏感配置，禁止提交)
+.env
+.env.local
+.env.*.local
+.env.production
+backend/.env
+backend/.env.production
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+backend/instance/
+
+# Logs
+*.log
+logs/
+backend/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Cache & uploads
+cache/
+backend/cache/
+
+# Node modules
+node_modules/
+web-front/node_modules/
+web-front/.next/
+web-front/out/
+
+# Next.js build
+.next/
+out/
+
+# Python version
+.python-version
+
+# 工具缓存
+.claude/
+.qoder/

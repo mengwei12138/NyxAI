@@ -1,0 +1,633 @@
+{% extends "admin/base.html" %}
+{% block title %}角色管理 - Nyx AI 管理后台{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">角色管理</h1>
+        <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-500">共 {{ total }} 个角色</span>
+            <button onclick="document.getElementById('createRoleModal').classList.remove('hidden')"
+                class="px-4 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M5 12h14" />
+                </svg>
+                新增角色
+            </button>
+        </div>
+    </div>
+
+    <!-- 搜索 -->
+    <form method="get" action="{{ admin_path }}/roles" class="mb-4 flex gap-2">
+        <input type="text" name="q" value="{{ q }}" placeholder="搜索角色名..."
+            class="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 w-56" />
+        <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700">搜索</button>
+        {% if q %}<a href="{{ admin_path }}/roles"
+            class="px-4 py-2 text-gray-600 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">清除</a>{% endif %}
+    </form>
+
+    <!-- 表格 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+                <tr>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">ID</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">角色名称</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">创建者</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">可见性</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">状态</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">系统角色</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">音色</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">创建时间</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">操作</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for role in roles %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-500">{{ role.id }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">
+                        {{ role.name }}
+                        {% if role.tags %}
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            {% for tag in role.tags.split(',')[:3] %}
+                            <span class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">{{ tag.strip()
+                                }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ creators_map.get(role.user_id, '未知') }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if role.visibility == 'public' %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">公开</span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">私有</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if role.is_active %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">上线</span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">下线</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        {% if role.is_system %}
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">系统</span>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <!-- 音色列 -->
+                    <td class="px-4 py-3 text-xs text-gray-500">
+                        {% if role.voice_reference_id %}
+                        <span class="text-purple-600 font-medium">{{ voice_map.get(role.voice_reference_id,
+                            role.voice_reference_id[:8] + '…') }}</span>
+                        {% else %}
+                        <span class="text-gray-300">默认</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-400 text-xs">{{ role.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center justify-center gap-2 flex-wrap">
+                            <!-- 上下架 -->
+                            <form method="post" action="{{ admin_path }}/roles/{{ role.id }}/toggle">
+                                <button type="submit"
+                                    class="px-2 py-1 text-xs rounded {% if role.is_active %}bg-orange-50 text-orange-600 hover:bg-orange-100{% else %}bg-green-50 text-green-600 hover:bg-green-100{% endif %} transition-colors">
+                                    {{ '下线' if role.is_active else '上线' }}
+                                </button>
+                            </form>
+                            <!-- 设置音色 -->
+                            <button type="button" onclick="toggleVoiceForm({{ role.id }})"
+                                class="px-2 py-1 text-xs rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors">
+                                音色
+                            </button>
+                            <!-- 删除 -->
+                            <form method="post" action="{{ admin_path }}/roles/{{ role.id }}/delete"
+                                data-role-name="{{ role.name | e }}"
+                                onsubmit="return confirm('确认删除角色「' + this.dataset.roleName + '」？此操作不可撤销！')">
+                                <button type="submit"
+                                    class="px-2 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                                    删除
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                <!-- 音色设置展开行 -->
+                <tr id="voice-row-{{ role.id }}" class="hidden bg-purple-50">
+                    <td colspan="9" class="px-6 py-3">
+                        <form method="post" action="{{ admin_path }}/roles/{{ role.id }}/set-voice"
+                            class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-gray-600">设置「{{ role.name }}」音色：</span>
+                            <select name="voice_reference_id"
+                                class="px-2 py-1 rounded border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-purple-400">
+                                <option value="">— 使用默认音色 —</option>
+                                {% for vp in voice_presets %}
+                                <option value="{{ vp.reference_id }}" {% if role.voice_reference_id==vp.reference_id
+                                    %}selected{% endif %}>
+                                    {{ vp.name }}{% if vp.is_default %} (默认){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit"
+                                class="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors">
+                                保存
+                            </button>
+                            <button type="button" onclick="toggleVoiceForm({{ role.id }})"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors">
+                                取消
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" class="px-4 py-8 text-center text-gray-400">暂无角色数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if total_pages > 1 %}
+    <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+        <span>第 {{ page }} / {{ total_pages }} 页</span>
+        <div class="flex gap-2">
+            {% if page > 1 %}
+            <a href="{{ admin_path }}/roles?q={{ q }}&page={{ page - 1 }}"
+                class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-50">上一页</a>
+            {% endif %}
+            {% if page < total_pages %} <a href="{{ admin_path }}/roles?q={{ q }}&page={{ page + 1 }}"
+                class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-50">下一页</a>
+                {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- 新增角色 Modal -->
+<div id="createRoleModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900">新增角色</h2>
+            <button onclick="document.getElementById('createRoleModal').classList.add('hidden')"
+                class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <!-- Modal Body -->
+        <form method="post" action="{{ admin_path }}/roles/create" id="createRoleForm"
+            class="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+            <!-- 封面图片 -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-2">角色封面</label>
+                <div class="flex items-center gap-4">
+                    <!-- 预览 -->
+                    <div id="avatarPreview"
+                        class="flex-shrink-0 h-20 w-20 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden relative">
+                        <svg id="avatarPlaceholder" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="3" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <path d="M21 15l-5-5L5 21" />
+                        </svg>
+                        <img id="avatarImg" src="" alt="封面"
+                            class="hidden absolute inset-0 w-full h-full object-cover rounded-xl" />
+                        <div id="avatarGeneratingMask"
+                            class="hidden absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
+                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4" />
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <!-- 操作区 -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex gap-2">
+                            <label
+                                class="cursor-pointer px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                上传图片
+                                <input type="file" id="avatarFileInput" accept="image/jpeg,image/png,image/webp"
+                                    class="hidden" onchange="handleAdminAvatarUpload(event)" />
+                            </label>
+                            <button type="button" id="genAvatarBtn" onclick="handleAdminGenAvatar()"
+                                class="px-3 py-1.5 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                                    <path d="M2 17l10 5 10-5M2 12l10 5 10-5" />
+                                </svg>
+                                AI 生成
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-gray-400">JPEG/PNG/WebP，≤5MB；AI生成需先填写外貌Tags</p>
+                        <p id="avatarStatusText" class="text-[11px] text-gray-400 hidden"></p>
+                    </div>
+                </div>
+                <!-- 隐藏字段：存储最终头像URL，提交时带上 -->
+                <input type="hidden" name="public_avatar" id="publicAvatarInput" value="" />
+            </div>
+            <hr class="border-gray-100" />
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">角色名称 <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" name="name" required maxlength="100" placeholder="给角色起个名字"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">标题</label>
+                    <input type="text" name="title" maxlength="200" placeholder="例：月光下的秘密（作为首页卡片展示标题）"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+                    <p class="text-xs text-gray-400 mt-1">不填则首页卡片显示角色名称</p>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">公开简介</label>
+                    <textarea name="public_summary" maxlength="500" rows="2" placeholder="显示在卡片上的简短描述"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+                </div>
+            </div>
+            <!-- 人设 -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">角色人设（Persona）</label>
+                <textarea name="persona" maxlength="10000" rows="4" placeholder="详细描述角色性格、说话方式、行为模式等"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">用户人设</label>
+                    <textarea name="user_persona" maxlength="500" rows="2" placeholder="用户在对话中的身份"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">场景设定</label>
+                    <textarea name="scenario" maxlength="5000" rows="2" placeholder="对话发生的环境"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">开场白</label>
+                <textarea name="greeting" maxlength="1000" rows="2" placeholder="角色首次见面时说的话"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">世界设定</label>
+                    <textarea name="world_setting" maxlength="10000" rows="2" placeholder="故事世界观"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">剧情大纲</label>
+                    <p class="text-[11px] text-gray-400 mb-1">开启剧情模式时 AI 按此推进故事走向</p>
+                    <textarea name="storyline" maxlength="5000" rows="2"
+                        placeholder="例：第一阶段-初遇产生误会；第二阶段-共历危机建立信任；第三阶段-情感升华表白"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+                </div>
+            </div>
+            <!-- 关键节点 -->
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700">关键节点</label>
+                        <p class="text-[11px] text-gray-400">AI 会引导剧情按顺序触达每个节点（JSON 格式自动处理）</p>
+                    </div>
+                    <button type="button" onclick="addPlotMilestone()"
+                        class="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        添加节点
+                    </button>
+                </div>
+                <input type="hidden" name="plot_milestones" id="plotMilestonesInput" value="" />
+                <div id="plotMilestonesList" class="space-y-2 mt-2"></div>
+                <div id="plotMilestonesEmpty"
+                    class="text-center py-4 rounded-lg border-2 border-dashed border-gray-200 text-xs text-gray-400">
+                    暂无关键节点，点击「添加节点」开始规划
+                </div>
+            </div>
+            <!-- 配置 -->
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">标签（逗号分隔）</label>
+                    <input type="text" name="tags" maxlength="255" placeholder="如: 古风,温柔"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">可见性</label>
+                    <select name="visibility"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700">
+                        <option value="public">公开</option>
+                        <option value="private">私有</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">画风</label>
+                    <select name="image_style"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700">
+                        <option value="photorealistic">超写实 (Photorealistic)</option>
+                        <option value="showa">昭和画风 (Showa Anime)</option>
+                        <option value="anime" selected>二次元 (Anime 2D)</option>
+                        <option value="oil_painting">艺术油画 (Oil Painting)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">外貌描述</label>
+                    <textarea name="appearance_tags" rows="3" maxlength="1000"
+                        placeholder="A young woman with long silver hair, red eyes, slender figure..."
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 resize-none"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">用自然语言描述角色固定外貌特征，将直接用于图像生成 prompt</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">初始衣物状态</label>
+                    <input type="text" name="clothing_state" maxlength="500" placeholder="角色初始穿着"
+                        class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+                </div>
+            </div>
+            <!-- 音色 -->
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">音色</label>
+                <select name="voice_reference_id"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700">
+                    <option value="">— 使用默认音色 —</option>
+                    {% for vp in voice_presets %}
+                    <option value="{{ vp.reference_id }}">{{ vp.name }}{% if vp.is_default %} (默认){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- 系统角色 -->
+            <div class="flex items-center gap-2">
+                <input type="checkbox" name="is_system" id="is_system_check" value="true"
+                    class="w-4 h-4 rounded border-gray-300 text-gray-900" />
+                <label for="is_system_check" class="text-sm text-gray-700">设为系统角色（置顶展示）</label>
+            </div>
+            <!-- 提交 -->
+            <div class="flex justify-end gap-3 pt-2 pb-2">
+                <button type="button" onclick="document.getElementById('createRoleModal').classList.add('hidden')"
+                    class="px-4 py-2 text-sm text-gray-600 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+                    取消
+                </button>
+                <button type="submit"
+                    class="px-6 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors">
+                    创建角色
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const ADMIN_PATH = "{{ admin_path }}";
+    function toggleVoiceForm(rid) {
+        const row = document.getElementById('voice-row-' + rid);
+        row.classList.toggle('hidden');
+    }
+
+    // ─── 关键节点管理 ───
+    let plotMilestonesData = [];
+
+    function renderPlotMilestones() {
+        const list = document.getElementById('plotMilestonesList');
+        const empty = document.getElementById('plotMilestonesEmpty');
+        list.innerHTML = '';
+        if (plotMilestonesData.length === 0) {
+            empty.classList.remove('hidden');
+        } else {
+            empty.classList.add('hidden');
+            plotMilestonesData.forEach(function (m, i) {
+                const div = document.createElement('div');
+                div.className = 'rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2';
+                div.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] text-gray-500 font-medium">节点 ${i + 1}</span>
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="movePlotMilestone(${i}, -1)" ${i === 0 ? 'disabled' : ''}
+                                class="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+                            </button>
+                            <button type="button" onclick="movePlotMilestone(${i}, 1)" ${i === plotMilestonesData.length - 1 ? 'disabled' : ''}
+                                class="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                            </button>
+                            <button type="button" onclick="removePlotMilestone(${i})"
+                                class="p-1 rounded hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <input type="text" value="${escapeHtml(m.title)}" oninput="updatePlotMilestone(${i}, 'title', this.value)"
+                        placeholder="节点标题（如：初次见面、产生信任、表白）"
+                        class="w-full px-2.5 py-1.5 rounded-md border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-gray-500" />
+                    <textarea oninput="updatePlotMilestone(${i}, 'description', this.value)" rows="2"
+                        placeholder="触发条件或剧情描述（如：当用户主动示好并提到喜欢角色时触发）"
+                        class="w-full px-2.5 py-1.5 rounded-md border border-gray-300 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-gray-500">${escapeHtml(m.description)}</textarea>
+                `;
+                list.appendChild(div);
+            });
+        }
+        document.getElementById('plotMilestonesInput').value = plotMilestonesData.length > 0 ? JSON.stringify(plotMilestonesData) : '';
+    }
+
+    function addPlotMilestone() {
+        plotMilestonesData.push({ title: '', description: '' });
+        renderPlotMilestones();
+    }
+
+    function removePlotMilestone(i) {
+        plotMilestonesData.splice(i, 1);
+        renderPlotMilestones();
+    }
+
+    function movePlotMilestone(i, dir) {
+        const j = i + dir;
+        if (j < 0 || j >= plotMilestonesData.length) return;
+        const tmp = plotMilestonesData[i];
+        plotMilestonesData[i] = plotMilestonesData[j];
+        plotMilestonesData[j] = tmp;
+        renderPlotMilestones();
+    }
+
+    function updatePlotMilestone(i, field, val) {
+        plotMilestonesData[i][field] = val;
+        document.getElementById('plotMilestonesInput').value = plotMilestonesData.length > 0 ? JSON.stringify(plotMilestonesData) : '';
+    }
+
+    function escapeHtml(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // 初始化渲染
+    renderPlotMilestones();
+    // 点击遮罩关闭 Modal
+    document.getElementById('createRoleModal').addEventListener('click', function (e) {
+        if (e.target === this) this.classList.add('hidden');
+    });
+
+    // ─── 封面：上传 ───
+    async function handleAdminAvatarUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        setAvatarStatus('上传中...', true);
+        const form = new FormData();
+        form.append('file', file);
+        try {
+            const res = await fetch(ADMIN_PATH + '/upload-avatar', { method: 'POST', body: form });
+            const data = await res.json();
+            if (data.success) {
+                setAvatarUrl(data.url);
+                setAvatarStatus('上传成功 ✓', false, 'text-green-600');
+            } else {
+                setAvatarStatus('上传失败：' + (data.detail || '未知错误'), false, 'text-red-500');
+            }
+        } catch (e) {
+            setAvatarStatus('上传失败：' + e.message, false, 'text-red-500');
+        }
+    }
+
+    // ─── 封面：AI 生成（需角色已存在；仅在已有 rid 时可用，否则提示先填写外貌Tags后创建） ───
+    // 因为 Modal 是新建表单（角色未创建），所以这里采用两步：
+    // 1. 先提交表单创建角色（获取 rid）
+    // 2. 再触发生成、轮询、保存
+    // 但为了体验简洁：此处 "AI 生成" 按钮先校验外貌Tags，然后提示用户提交表单后会自动生成
+    // 同时提供一个独立入口：在已有角色列表中直接生成（通过角色行的入口）
+    // ── 实际策略：Modal 的 AI 生成在提交时自动触发（appearance_tags 非空则创建后立即生成）
+    // 按钮点击后显示说明
+    function handleAdminGenAvatar() {
+        const tagsInput = document.querySelector('#createRoleForm textarea[name="appearance_tags"]');
+        const tags = tagsInput ? tagsInput.value.trim() : '';
+        if (!tags) {
+            setAvatarStatus('请先填写「外貌描述」再点击 AI 生成', false, 'text-orange-500');
+            if (tagsInput) tagsInput.focus();
+            return;
+        }
+        setAvatarStatus('创建角色后将自动生成封面 ✓', false, 'text-purple-600');
+        // 标记需要在创建后自动生成
+        document.getElementById('createRoleForm').dataset.autoGenAvatar = '1';
+    }
+
+    // ─── 辅助：更新头像预览和隐藏字段 ───
+    function setAvatarUrl(url) {
+        const backendBase = (window.location.origin.includes('3000')) ? 'http://localhost:8000' : '';
+        const fullUrl = url.startsWith('http') ? url : backendBase + url;
+        const img = document.getElementById('avatarImg');
+        const placeholder = document.getElementById('avatarPlaceholder');
+        img.src = fullUrl;
+        img.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        document.getElementById('publicAvatarInput').value = url;
+    }
+
+    function setAvatarStatus(text, spinning, colorClass) {
+        const el = document.getElementById('avatarStatusText');
+        const mask = document.getElementById('avatarGeneratingMask');
+        el.textContent = text;
+        el.className = 'text-[11px] ' + (colorClass || 'text-gray-400');
+        el.classList.remove('hidden');
+        if (spinning) { mask.classList.remove('hidden'); } else { mask.classList.add('hidden'); }
+    }
+
+    // ─── 创建角色后自动生成头像（若勾选了 autoGenAvatar）───
+    // 通过拦截表单提交实现
+    document.getElementById('createRoleForm').addEventListener('submit', async function (e) {
+        const autoGen = this.dataset.autoGenAvatar === '1';
+        const alreadyHasAvatar = document.getElementById('publicAvatarInput').value.trim();
+        if (!autoGen || alreadyHasAvatar) return; // 正常提交
+
+        // 需要先提交创建角色，再触发生成
+        e.preventDefault();
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '创建中...';
+
+        try {
+            // 提交表单数据（fetch）
+            const formData = new FormData(this);
+            const resp = await fetch(ADMIN_PATH + '/roles/create-json', {
+                method: 'POST',
+                body: formData,
+            });
+            // 如果后端没有 JSON 接口，fallback 到普通提交（角色已创建，跳过生成）
+            if (!resp.ok) {
+                this.submit();
+                return;
+            }
+            const result = await resp.json();
+            if (!result.success || !result.role_id) {
+                this.submit();
+                return;
+            }
+            const rid = result.role_id;
+
+            // 触发生成
+            setAvatarStatus('正在生成封面...', true);
+            const genResp = await fetch(ADMIN_PATH + `/roles/${rid}/generate-avatar`, { method: 'POST' });
+            const genData = await genResp.json();
+            if (!genData.success || !genData.task_id) {
+                setAvatarStatus('角色已创建，封面生成失败', false, 'text-orange-500');
+                setTimeout(() => { window.location.href = ADMIN_PATH + '/roles'; }, 1500);
+                return;
+            }
+
+            // 轮询状态
+            const taskId = genData.task_id;
+            const deadline = Date.now() + 5 * 60 * 1000;
+            const poll = async () => {
+                if (Date.now() > deadline) {
+                    setAvatarStatus('封面生成超时，角色已创建', false, 'text-orange-500');
+                    setTimeout(() => { window.location.href = ADMIN_PATH + '/roles'; }, 1500);
+                    return;
+                }
+                const statusResp = await fetch(ADMIN_PATH + `/image-status/${taskId}`);
+                const statusData = await statusResp.json();
+                const s = (statusData.status || '').toUpperCase();
+                if (s === 'COMPLETED' || s === 'SUCCESS') {
+                    const imageUrl = statusData.image_url;
+                    if (imageUrl) {
+                        // 保存封面
+                        const saveForm = new FormData();
+                        saveForm.append('image_url', imageUrl);
+                        await fetch(ADMIN_PATH + `/roles/${rid}/save-avatar`, { method: 'POST', body: saveForm });
+                    }
+                    setAvatarStatus('封面生成成功！正在跳转...', false, 'text-green-600');
+                    setTimeout(() => { window.location.href = ADMIN_PATH + '/roles'; }, 800);
+                } else if (s === 'ERROR' || s === 'FAILED') {
+                    setAvatarStatus('封面生成失败，角色已创建', false, 'text-orange-500');
+                    setTimeout(() => { window.location.href = ADMIN_PATH + '/roles'; }, 1500);
+                } else {
+                    setTimeout(poll, 2500);
+                }
+            };
+            setTimeout(poll, 3000);
+        } catch (err) {
+            // 任何异常 fallback 到普通提交
+            this.submit();
+        }
+    });
+</script>
+{% endblock %}

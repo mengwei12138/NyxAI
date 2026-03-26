@@ -1,0 +1,200 @@
+{% extends "admin/base.html" %}
+{% block title %}积分管理 - Nyx AI 管理后台{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">积分管理</h1>
+        <span class="text-sm text-gray-500">共 {{ total }} 位用户</span>
+    </div>
+
+    <!-- 搜索 -->
+    <form method="get" action="{{ admin_path }}/credits" class="mb-4 flex gap-2">
+        <input type="text" name="q" value="{{ q }}" placeholder="搜索用户名..."
+            class="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700 w-56" />
+        <button type="submit" class="px-4 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700">搜索</button>
+        {% if q %}<a href="{{ admin_path }}/credits"
+            class="px-4 py-2 text-gray-600 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">清除</a>{% endif %}
+    </form>
+
+    <!-- 用户积分排行表 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+                <tr>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">排名</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">ID</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">用户名</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">当前积分</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">累计获得</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">累计消耗</th>
+                    <th class="text-center px-4 py-3 font-semibold text-gray-600">操作</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% set rank_offset = (page - 1) * page_size %}
+                {% for item in user_credits_list %}
+                {% set u = item.user %}
+                {% set c = item.credits %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 text-gray-400 font-medium">
+                        {% set rank = loop.index + rank_offset %}
+                        {% if rank == 1 %}<span class="text-amber-500 font-bold">🥇 1</span>
+                        {% elif rank == 2 %}<span class="text-gray-400 font-bold">🥈 2</span>
+                        {% elif rank == 3 %}<span class="text-amber-700 font-bold">🥉 3</span>
+                        {% else %}{{ rank }}{% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-gray-500">{{ u.id }}</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">{{ u.username }}</td>
+                    <td class="px-4 py-3 text-right font-bold text-amber-600 text-base">
+                        {{ c.balance if c else 0 }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-green-600">
+                        {{ c.total_earned if c else 0 }}
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-400">
+                        {{ c.total_spent if c else 0 }}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center justify-center gap-1">
+                            <button
+                                onclick="openAdjust({{ u.id }}, '{{ u.username | e }}', {{ c.balance if c else 0 }}, 'recharge')"
+                                class="px-2 py-1 text-xs rounded bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors">
+                                +充值
+                            </button>
+                            <button
+                                onclick="openAdjust({{ u.id }}, '{{ u.username | e }}', {{ c.balance if c else 0 }}, 'deduct')"
+                                class="px-2 py-1 text-xs rounded bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
+                                -扣减
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="px-4 py-8 text-center text-gray-400">暂无用户数据</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页 -->
+    {% if total_pages > 1 %}
+    <div class="flex items-center justify-between mt-4 text-sm text-gray-500">
+        <span>第 {{ page }} / {{ total_pages }} 页，共 {{ total }} 位用户</span>
+        <div class="flex gap-1">
+            {% if page > 1 %}
+            <a href="{{ admin_path }}/credits?q={{ q }}&page=1"
+                class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">首页</a>
+            <a href="{{ admin_path }}/credits?q={{ q }}&page={{ page - 1 }}"
+                class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-50">上一页</a>
+            {% endif %}
+
+            {% set start_p = [1, page - 2] | max %}
+            {% set end_p = [total_pages, page + 2] | min %}
+            {% for p in range(start_p, end_p + 1) %}
+            <a href="{{ admin_path }}/credits?q={{ q }}&page={{ p }}"
+                class="px-3 py-1 rounded border {% if p == page %}bg-gray-900 text-white border-gray-900{% else %}border-gray-300 hover:bg-gray-50{% endif %}">
+                {{ p }}
+            </a>
+            {% endfor %}
+
+            {% if page < total_pages %} <a href="{{ admin_path }}/credits?q={{ q }}&page={{ page + 1 }}"
+                class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-50">下一页</a>
+                <a href="{{ admin_path }}/credits?q={{ q }}&page={{ total_pages }}"
+                    class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50">末页</a>
+                {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 充值/扣减弹窗 -->
+<dialog id="adjust-dialog" class="rounded-xl shadow-2xl p-0 w-96 backdrop:bg-black/40">
+    <div class="p-6">
+        <h3 class="font-semibold text-gray-900 mb-1" id="adjust-title">调整积分</h3>
+        <p class="text-sm text-gray-400 mb-4">用户：<span id="adjust-username" class="font-medium text-gray-700"></span>
+            &nbsp;|&nbsp;当前积分：<span id="adjust-balance" class="font-bold text-amber-600"></span></p>
+
+        <!-- 充值表单 -->
+        <form method="post" id="recharge-form" action="{{ admin_path }}/credits/recharge">
+            <input type="hidden" name="target_uid" id="recharge-uid" value="" />
+            <input type="hidden" name="q" value="{{ q }}" />
+            <input type="hidden" name="page" value="{{ page }}" />
+            <div class="mb-3">
+                <label class="block text-sm text-gray-600 mb-1">充值数量</label>
+                <input type="number" name="amount" min="1" required id="recharge-amount"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="请输入积分数量" />
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-600 mb-1">备注</label>
+                <input type="text" name="description" value="管理员充值"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div class="flex gap-2">
+                <button type="submit"
+                    class="flex-1 py-2 bg-amber-500 text-white text-sm rounded-lg hover:bg-amber-400">确认充值</button>
+                <button type="button" onclick="document.getElementById('adjust-dialog').close()"
+                    class="flex-1 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">取消</button>
+            </div>
+        </form>
+
+        <!-- 扣减表单 -->
+        <form method="post" id="deduct-form" action="{{ admin_path }}/credits/deduct" class="hidden">
+            <input type="hidden" name="target_uid" id="deduct-uid" value="" />
+            <input type="hidden" name="q" value="{{ q }}" />
+            <input type="hidden" name="page" value="{{ page }}" />
+            <div class="mb-3">
+                <label class="block text-sm text-gray-600 mb-1">扣减数量</label>
+                <input type="number" name="amount" min="1" required id="deduct-amount"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                    placeholder="请输入扣减数量" />
+                <p class="text-xs text-gray-400 mt-1">实际扣减不超过用户当前余额，最多扣至 0</p>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-600 mb-1">备注</label>
+                <input type="text" name="description" value="管理员扣减"
+                    class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-700" />
+            </div>
+            <div class="flex gap-2">
+                <button type="submit"
+                    class="flex-1 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-400">确认扣减</button>
+                <button type="button" onclick="document.getElementById('adjust-dialog').close()"
+                    class="flex-1 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50">取消</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const ADMIN_PATH = "{{ admin_path }}";
+
+    function openAdjust(uid, username, balance, mode) {
+        document.getElementById('adjust-username').textContent = username;
+        document.getElementById('adjust-balance').textContent = balance;
+
+        const rechargeForm = document.getElementById('recharge-form');
+        const deductForm = document.getElementById('deduct-form');
+
+        if (mode === 'recharge') {
+            document.getElementById('adjust-title').textContent = '💎 充值积分';
+            document.getElementById('recharge-uid').value = uid;
+            document.getElementById('recharge-amount').value = '';
+            rechargeForm.classList.remove('hidden');
+            deductForm.classList.add('hidden');
+        } else {
+            document.getElementById('adjust-title').textContent = '➖ 扣减积分';
+            document.getElementById('deduct-uid').value = uid;
+            document.getElementById('deduct-amount').value = '';
+            rechargeForm.classList.add('hidden');
+            deductForm.classList.remove('hidden');
+        }
+
+        document.getElementById('adjust-dialog').showModal();
+    }
+</script>
+{% endblock %}
