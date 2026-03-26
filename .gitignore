@@ -86,3 +86,6 @@ out/
 爱发电方案.md
 爱发电方式.md
 技术扩容规划.md
+
+# 提示词文件（核心资产，不公开）
+backend/app/prompts/
