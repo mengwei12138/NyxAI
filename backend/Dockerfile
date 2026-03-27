@@ -26,9 +26,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# 创建非 root 用户
-RUN groupadd -r nyx && useradd -r -g nyx nyx
-
 # 安装运行时依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
@@ -42,12 +39,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 COPY app/ ./app/
 COPY create_admin.py create_default_role.py create_system_roles.py ./
 
-# 创建必要的目录
-RUN mkdir -p logs cache/tts cache/images instance && \
-    chown -R nyx:nyx /app
+# 创建必要的目录（容器内默认目录）
+RUN mkdir -p logs cache/tts cache/images instance
 
-# 切换到非 root 用户
-USER nyx
+# 复制启动脚本
+COPY docker-entrypoint.sh /
+RUN chmod +x /docker-entrypoint.sh
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -56,5 +53,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # 暴露端口
 EXPOSE 8000
 
-# 启动命令
+# 使用 entrypoint 脚本处理权限
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
