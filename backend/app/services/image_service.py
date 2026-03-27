@@ -2,6 +2,8 @@
 文生图服务
 基于 Z-image API 的异步图像生成
 """
+import json
+import redis
 import requests
 import time
 import uuid
@@ -105,30 +107,97 @@ def _download_image(image_url: str) -> Optional[str]:
         return image_url  # fallback: 返回原 URL
 
 
-# 任务存储（生产环境应使用 Redis）
+# Redis 任务存储（支持多 worker）
+
+_redis_client = None
+
+
+def _get_redis():
+    """获取 Redis 客户端（单例）"""
+    global _redis_client
+    if _redis_client is None:
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        try:
+            _redis_client = redis.from_url(redis_url, decode_responses=True)
+            _redis_client.ping()
+            print(f"[Image-Redis] 连接成功: {redis_url}")
+        except Exception as e:
+            print(f"[Image-Redis] 连接失败，回退到内存存储: {e}")
+            _redis_client = None
+    return _redis_client
+
+
+# 内存回退存储（仅当 Redis 不可用时）
 _image_tasks = {}
 _tasks_lock = threading.Lock()
 
-# 已完成/失败任务的 TTL（秒），超过此时间自动清理
-_TASK_TTL_SECONDS = 3600  # 1 小时
+# 任务 TTL（秒）
+_TASK_TTL_SECONDS = 3600
+
+
+def _save_task(task_id: str, task_data: dict):
+    """保存任务到 Redis 或内存"""
+    task_data["created_at"] = time.time()
+    redis_client = _get_redis()
+    if redis_client:
+        try:
+            redis_client.hset("nyx:image_tasks", task_id,
+                              json.dumps(task_data))
+            redis_client.expire("nyx:image_tasks", _TASK_TTL_SECONDS + 300)
+            return
+        except Exception as e:
+            print(f"[Image-Redis] 保存失败: {e}")
+    with _tasks_lock:
+        _image_tasks[task_id] = task_data
+
+
+def _get_task(task_id: str) -> dict | None:
+    """获取任务状态"""
+    redis_client = _get_redis()
+    if redis_client:
+        try:
+            data = redis_client.hget("nyx:image_tasks", task_id)
+            if data:
+                return json.loads(data)
+        except Exception as e:
+            print(f"[Image-Redis] 获取失败: {e}")
+    with _tasks_lock:
+        return _image_tasks.get(task_id)
+
+
+def _update_task(task_id: str, updates: dict):
+    """更新任务字段"""
+    task = _get_task(task_id)
+    if task:
+        task.update(updates)
+        _save_task(task_id, task)
+
+
+def _delete_task(task_id: str):
+    """删除任务"""
+    redis_client = _get_redis()
+    if redis_client:
+        try:
+            redis_client.hdel("nyx:image_tasks", task_id)
+        except Exception:
+            pass
+    with _tasks_lock:
+        _image_tasks.pop(task_id, None)
 
 
 def _cleanup_expired_tasks():
-    """
-    清理超过 TTL 的已完成/失败任务，防止内存泄漏。
-    在每次创建新任务时触发，低成本摊销清理开销。
-    """
+    """清理过期任务（Redis 自动过期，仅清理内存）"""
     now = time.time()
     with _tasks_lock:
         expired = [
             tid for tid, task in _image_tasks.items()
-            if task.get('status') in ('COMPLETED', 'SUCCESS', 'ERROR', 'FAILED')
+            if task.get('status') in ('COMPLETED', 'SUCCEEDED', 'ERROR', 'FAILED')
             and now - task.get('created_at', now) > _TASK_TTL_SECONDS
         ]
         for tid in expired:
             del _image_tasks[tid]
         if expired:
-            print(f"[Image] 清理过期任务 {len(expired)} 条")
+            print(f"[Image] 清理内存过期任务 {len(expired)} 条")
 
 
 # Z-image API prompt 字符上限
@@ -397,16 +466,14 @@ Please describe what should be visible in the generated image. Be specific about
         _cleanup_expired_tasks()
 
         # 立即注册任务，状态为 PROCESSING（LLM 准备中）
-        with _tasks_lock:
-            _image_tasks[task_id] = {
-                'status': 'PROCESSING',
-                'zimage_task_id': None,
-                'prompt': None,
-                'negative_prompt': '',
-                'image_url': None,
-                'error': None,
-                'created_at': time.time()
-            }
+        _save_task(task_id, {
+            'status': 'PROCESSING',
+            'zimage_task_id': None,
+            'prompt': None,
+            'negative_prompt': '',
+            'image_url': None,
+            'error': None
+        })
 
         def _run():
             # 提取 role_config 中的各项上下文
@@ -464,24 +531,22 @@ Please describe what should be visible in the generated image. Be specific about
 
                 if not zimage_task_id:
                     print("[Image] 创建 Z-image 任务失败")
-                    with _tasks_lock:
-                        _image_tasks[task_id]['status'] = 'ERROR'
-                        _image_tasks[task_id]['error'] = '提交图像生成任务失败'
+                    _update_task(
+                        task_id, {'status': 'ERROR', 'error': '提交图像生成任务失败'})
                     return
 
                 print(
                     f"[Image] 创建任务成功: local={task_id}, zimage={zimage_task_id}")
-                with _tasks_lock:
-                    _image_tasks[task_id]['status'] = 'PENDING'
-                    _image_tasks[task_id]['zimage_task_id'] = zimage_task_id
-                    _image_tasks[task_id]['prompt'] = final_prompt
-                    _image_tasks[task_id]['negative_prompt'] = negative_prompt
+                _update_task(task_id, {
+                    'status': 'PENDING',
+                    'zimage_task_id': zimage_task_id,
+                    'prompt': final_prompt,
+                    'negative_prompt': negative_prompt
+                })
 
             except Exception as e:
                 print(f"[Image] 后台任务异常: {e}")
-                with _tasks_lock:
-                    _image_tasks[task_id]['status'] = 'ERROR'
-                    _image_tasks[task_id]['error'] = str(e)
+                _update_task(task_id, {'status': 'ERROR', 'error': str(e)})
 
         # 在后台线程执行三步 LLM 流程，不阻塞 HTTP 请求
         t = threading.Thread(target=_run, daemon=True)
@@ -492,14 +557,12 @@ Please describe what should be visible in the generated image. Be specific about
     @staticmethod
     def get_task_status(task_id: str) -> Dict:
         """获取任务状态"""
-        print(f"[Image] 查询任务状态: {task_id}, 当前任务数: {len(_image_tasks)}")
+        task = _get_task(task_id)
+        if not task:
+            print(f"[Image] 任务不存在: {task_id}")
+            return {'status': 'ERROR', 'error': '任务不存在或已过期'}
 
-        with _tasks_lock:
-            if task_id not in _image_tasks:
-                print(f"[Image] 任务不存在: {task_id}")
-                return {'status': 'ERROR', 'error': '任务不存在'}
-            task = _image_tasks[task_id].copy()
-            print(f"[Image] 找到任务: zimage_task_id={task.get('zimage_task_id')}")
+        print(f"[Image] 找到任务: zimage_task_id={task.get('zimage_task_id')}")
 
         # 如果任务还在处理中，查询 Z-image 状态（仅 PENDING 状态才需要查）
         if task['status'] == 'PENDING' and task.get('zimage_task_id'):
@@ -509,19 +572,18 @@ Please describe what should be visible in the generated image. Be specific about
             print(f"[Image] Z-image 返回: {zimage_status}")
 
             # 更新本地状态
-            with _tasks_lock:
-                if zimage_status['status'] == 'SUCCESS':
-                    # 下载图片到本地 cache/images/
-                    local_url = _download_image(zimage_status['image_url'])
-                    _image_tasks[task_id]['status'] = 'COMPLETED'
-                    _image_tasks[task_id]['image_url'] = local_url
-                    task['status'] = 'COMPLETED'
-                    task['image_url'] = local_url
-                elif zimage_status['status'] == 'ERROR':
-                    _image_tasks[task_id]['status'] = 'ERROR'
-                    _image_tasks[task_id]['error'] = zimage_status['error']
-                    task['status'] = 'ERROR'
-                    task['error'] = zimage_status['error']
+            if zimage_status['status'] == 'SUCCESS':
+                # 下载图片到本地 cache/images/
+                local_url = _download_image(zimage_status['image_url'])
+                _update_task(
+                    task_id, {'status': 'COMPLETED', 'image_url': local_url})
+                task['status'] = 'COMPLETED'
+                task['image_url'] = local_url
+            elif zimage_status['status'] == 'ERROR':
+                _update_task(task_id, {'status': 'ERROR',
+                             'error': zimage_status['error']})
+                task['status'] = 'ERROR'
+                task['error'] = zimage_status['error']
 
         return {
             'status': task['status'],
@@ -532,19 +594,18 @@ Please describe what should be visible in the generated image. Be specific about
     @staticmethod
     def register_zimage_task(zimage_task_id: str) -> str:
         """
-        将一个已提交的 Z-image task_id 注册到本地 _image_tasks，
+        将一个已提交的 Z-image task_id 注册到 Redis，
         使 get_task_status 可以通过本地 task_id 轮询到状态。
         返回本地 task_id（供前端轮询使用）。
         """
         import uuid
         local_task_id = str(uuid.uuid4())
-        with _tasks_lock:
-            _image_tasks[local_task_id] = {
-                'status': 'PENDING',
-                'zimage_task_id': zimage_task_id,
-                'image_url': None,
-                'error': None,
-            }
+        _save_task(local_task_id, {
+            'status': 'PENDING',
+            'zimage_task_id': zimage_task_id,
+            'image_url': None,
+            'error': None,
+        })
         print(
             f"[Image] 注册 Z-image 任务: local={local_task_id}, zimage={zimage_task_id}")
         return local_task_id
