@@ -130,6 +130,12 @@ export default function ProfilePage() {
     setIsCreatingOrder(true)
     try {
       const result = await paymentApi.prepareOrder(selectedPkg)
+      // 校验返回的 user_id 是否匹配当前登录用户（防止切换账号后轮询旧订单）
+      if (String(result.user_id) !== String(user?.id)) {
+        console.warn('订单用户ID不匹配当前登录用户，可能已切换账号')
+        alert('登录状态已变更，请刷新页面后重试')
+        return
+      }
       setCustomOrderId(result.custom_order_id)
       setPendingPayUrl(result.pay_url)
       const pkg = packages.find(p => p.id === selectedPkg)

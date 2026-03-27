@@ -36,6 +36,7 @@ async def prepare_order(
     预创建订单，返回：
     - pay_url: 爱发电付款链接（前端直接跳转）
     - custom_order_id: 用于后续轮询状态
+    - user_id: 当前用户ID（前端校验用，防止切换账号后轮询旧订单）
     """
     package_id = body.get("package_id", "")
     if not package_id:
@@ -52,6 +53,7 @@ async def prepare_order(
             "success": True,
             "pay_url": pay_url,
             "custom_order_id": custom_order_id,
+            "user_id": current_user.id,
         }
     except ValueError as e:
         raise HTTPException(

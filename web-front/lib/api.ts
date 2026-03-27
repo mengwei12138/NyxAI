@@ -500,6 +500,7 @@ export interface PrepareOrderResult {
     success: boolean
     pay_url: string            // 爱发电付款链接，前端直接跳转
     custom_order_id: string    // 用于轮询支付状态
+    user_id: number            // 当前用户ID（前端校验用）
 }
 
 export interface OrderStatus {
