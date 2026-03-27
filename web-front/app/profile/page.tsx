@@ -140,7 +140,21 @@ export default function ProfilePage() {
       setPendingPayUrl(result.pay_url)
       const pkg = packages.find(p => p.id === selectedPkg)
       setPendingCredits(pkg?.credits ?? 0)
-      // 爱发电：直接跳转，移动端同样支持（微信/支付宝网页内打开爱发电）
+
+      // 重要提示：爱发电页面会显示历史留言，需用户手动确认备注
+      const confirmed = confirm(
+        `⚠️ 重要提示\n\n` +
+        `即将跳转到爱发电支付页面。\n\n` +
+        `请在支付前确认「备注/留言」内容为：\n${result.custom_order_id}\n\n` +
+        `如果显示的是其他内容，请手动修改为上述订单号，否则积分可能到账错误账户！\n\n` +
+        `点击「确定」继续支付`
+      )
+      if (!confirmed) {
+        setIsCreatingOrder(false)
+        return
+      }
+
+      // 爱发电：直接跳转，移动端同样支持
       window.open(result.pay_url, '_blank')
       startPolling(result.custom_order_id)
     } catch (e: unknown) {
