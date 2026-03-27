@@ -204,8 +204,8 @@ class PaymentService:
             )
 
             # 1. 严格验签（RSA SHA256）
-            #    sign 在 Webhook payload 顶层（与 ec/em/data 平级）
-            sign = payload.get("sign", "")
+            #    sign 在 Webhook data 层级（与 type/order 平级）
+            sign = data.get("sign", "") or payload.get("sign", "")
             if not sign:
                 logger.warning(
                     f"收到无 sign 的 Webhook 请求，out_trade_no={out_trade_no}，"
